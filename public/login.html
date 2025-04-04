@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <style>
+        body {
+            margin: 20px;
+            background-image: url('/public/static/new_login.jpg');
+            background-size: cover;
+        }
+        form {
+            max-width: 300px;
+            margin: 0 auto;
+            padding: 40px;
+            background: black;
+            border-radius: 8px;
+            color: white;
+        }
+        h1{
+            text-align: center;
+            margin: 0;
+            font-size: 100px;
+            color: red;
+
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <img src="/public/static/output.png" alt="Logo" style="display: block; margin: 0 auto 20px; height: 150px width: 300px;">
+    </div>
+    <form action="/login" method="POST">
+        <h2>Login</h2>
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required>
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required>
+        <button type="submit">Login</button>
+        <p>Not registered? <a href="/register">Register here</a></p>
+    </form>
+</body>
+</html>
