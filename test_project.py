@@ -68,5 +68,8 @@ def test_negative_phase_correction():
 def test_invalid_date_type():
     with pytest.raises(TypeError):
         get_moon_phase("not_a_date")  # should raise an error due to invalid subtraction
+<<<<<<< HEAD
 
 # note to self further study pytest syntax this took way too much time and research.
+=======
+>>>>>>> e44e46bd2e24e541fdfa248e9c90f962e5432c5a
