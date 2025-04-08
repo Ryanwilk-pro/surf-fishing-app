@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 import base64
 from math import radians, sin, cos, sqrt, atan2
 import logging
+import re  # Added for regular expression validation
 
 # Load environment variables
 load_dotenv()
@@ -196,6 +197,29 @@ def get_moon_phase(date):
         return 'Waning Crescent'
     return 'Unknown'
 
+# New validation functions
+def validate_username(username):
+    """Validate username: 3-20 characters, alphanumeric and underscores only."""
+    if len(username) < 3 or len(username) > 20:
+        return False, "Username must be between 3 and 20 characters"
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+        return False, "Username can only contain letters, numbers, and underscores"
+    return True, ""
+
+def validate_password(password):
+    """Validate password: min 8 chars, with upper, lower, digit, and special char."""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one digit"
+    if not re.search(r'[!@#$%^&*]', password):
+        return False, "Password must contain at least one special character (!@#$%^&*)"
+    return True, ""
+
 # Routes
 @app.route('/')
 def index():
@@ -223,6 +247,19 @@ def register():
         if not username or not password:
             logging.error("Missing username or password")
             return 'Missing username or password', 400
+
+        # Validate username
+        valid_username, username_error = validate_username(username)
+        if not valid_username:
+            logging.error(f"Invalid username: {username_error}")
+            return username_error, 400
+
+        # Validate password
+        valid_password, password_error = validate_password(password)
+        if not valid_password:
+            logging.error(f"Invalid password: {password_error}")
+            return password_error, 400
+
         # Hash the password and convert to string for consistent database storage
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         hashed_str = hashed.decode('utf-8')  # Convert bytes to string
