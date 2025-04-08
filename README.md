@@ -11,6 +11,10 @@
 - **Weather Info**: Uses openweathermap API and geolocation to get the user accurate weather data.
 ## Design:
 I chose several pictures from Pixabay.com to add to my web app. I had a lot of trouble creating the logo so I coded a small program to resize pictures which helped in the logo on the login page. I left the calendar page white so the logs are easy to read and stand out to the user. I had many different pictures picked out for background images but none of them had high enough quality to stretch.
+## Tech Stack:
+- **Languages**: Python, JavaScript, HTML, CSS
+- **Frameworks**: Flask, FullCalendar
+- **Database**: PostgreSQL
 ## Usage: 
 ### 1. Register/Login:
 - Head to [https://www.striperlog.com](https://striperlog.com/) to register a new account or login if you have already registered.
