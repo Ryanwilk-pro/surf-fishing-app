@@ -22,3 +22,5 @@ I chose several pictures from Pixabay.com to add to my web app. I had alot of tr
 ### 4. Log out:
 - There is a "Log Out" button in the bottom right corner of all 3 pages (dashboard, catch, calendar)
 - Be prepared for steady updates and new features. You can check back here for any information about any updates in the future.
+## Contributing
+Feedback and contributions are welcome! Submit issues or pull requests on [GitHub](https://github.com/Ryanwilk-pro/surf-fishing-app) or email me at [Ryanwilk.pro@gmail.com](mailto:ryanwilk.pro@gmail.com)
