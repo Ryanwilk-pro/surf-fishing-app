@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Added for mobile -->
+    <title>Calendar</title>
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+    <style>
+        body {
+            margin: 20px;
+            position: relative;
+            min-height: 100vh;
+        }
+        nav {
+            background-color: #007bff;
+            margin: 10px 0;
+            text-align: center; /* Added for better alignment */
+        }
+        nav a {
+            color: white;
+            margin: 0 10px; /* Adjusted for mobile */
+            text-decoration: none;
+        }
+        h1 {
+            text-align: center;
+            margin: 10px 0;
+        }
+        #calendar {
+            max-width: 900px;
+            margin: 0 auto;
+            height: 70vh; /* Default height for desktop */
+        }
+        .fc-event {
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        #catchDetailsModal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            z-index: 1000;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #catchDetailsModal img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+        .modal-content {
+            position: relative;
+        }
+        .close-button-top {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #333;
+        }
+        .close-button-top:hover {
+            color: #000;
+        }
+        .close-button-bottom {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .close-button-bottom:hover {
+            background: #0056b3;
+        }
+        footer {
+            background: transparent;
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+        }
+        footer button {
+            background: none;
+            border: none;
+            color: black;
+            cursor: pointer;
+            padding: 0;
+        }
+        footer button:hover {
+            text-decoration: underline;
+            color: #007bff;
+        }
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+            nav {
+                margin: 5px 0;
+            }
+            nav a {
+                margin: 0 8px;
+                font-size: 14px;
+            }
+            h1 {
+                font-size: 24px; /* Smaller title */
+            }
+            #calendar {
+                max-width: 100%; /* Full width on mobile */
+                height: 80vh; /* Taller to use more screen */
+            }
+            .fc-event {
+                font-size: 10px; /* Slightly smaller events */
+            }
+            footer {
+                bottom: 5px;
+                right: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/calendar">Calendar</a>
+        <a href="/catch">Log a Catch</a>
+    </nav>
+    <h1>Fishing Calendar</h1>
+    <div id="calendar"></div>
+    <div id="catchDetailsModal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button-top" onclick="closeModal()">×</span>
+            <h2>Catch Details</h2>
+            <div id="catchDetailsContent"></div>
+            <button class="close-button-bottom" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+    <footer>
+        <form method="POST" action="/logout">
+            <button type="submit">Log Out</button>
+        </form>
+    </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                events: '/catches',
+                displayEventTime: false,
+                eventClick: function(info) {
+                    const dateStr = info.event.startStr.split('T')[0];
+                    fetch(`/catches?date=${dateStr}`)
+                        .then(response => response.json())
+                        .then(catches => {
+                            const catchItem = catches.find(c => String(c.id) === info.event.id);
+                            if (catchItem) {
+                                showCatchDetails(catchItem);
+                            } else {
+                                showCatchDetails({ message: 'No details found for this catch' });
+                            }
+                        })
+                        .catch(error => console.error('Fetch error:', error));
+                }
+            });
+            calendar.render();
+        });
+
+        function showCatchDetails(catchItem) {
+            const modal = document.getElementById('catchDetailsModal');
+            const content = document.getElementById('catchDetailsContent');
+            if (!modal || !content) {
+                console.error('Modal elements not found:', { modal, content });
+                return;
+            }
+            if (catchItem.message) {
+                content.innerHTML = `<p>${catchItem.message}</p>`;
+            } else {
+                const locationDisplay = catchItem.maps_link ? `<a href="${catchItem.maps_link}" target="_blank">${catchItem.location}</a>` : catchItem.location;
+                content.innerHTML = `
+                    <p><strong>Date:</strong> ${catchItem.date}</p>
+                    <p><strong>Location:</strong> ${locationDisplay}</p>
+                    <p><strong>Lure:</strong> ${catchItem.lure}</p>
+                    <p><strong>Size:</strong> ${catchItem.size}</p>
+                    <p><strong>Weight:</strong> ${catchItem.weight}</p>
+                    <p><strong>Tide:</strong> ${catchItem.tide}</p>
+                    <p><strong>Moon Phase:</strong> ${catchItem.moon_phase}</p>
+                    <img src="/static/uploads/${catchItem.image}" alt="Catch Image" onerror="this.src='/static/placeholder.jpg'; this.onerror=null;">
+                `;
+            }
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('catchDetailsModal');
+            if (modal) modal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

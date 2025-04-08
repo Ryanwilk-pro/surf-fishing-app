@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log a Catch</title>
+    <style>
+        body {
+            margin: 20px;
+            background-image: url('/public/static/caught_striper.jpg');
+            background-size: cover;
+            background-position: center;
+            min-height: 100vh;
+        }
+        nav {
+            background-color: #007bff;
+            padding: 10px;
+            text-align: center;
+        }
+        nav a {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+        }
+        form {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+        #video {
+            max-width: 100%;
+            height: auto;
+        }
+        #preview {
+            max-width: 100%;
+            margin-top: 10px;
+        }
+        footer {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: transparent;
+        }
+        footer button {
+            background: transparent;
+            border: none;
+            color: red;
+            cursor: pointer;
+            padding: 0;
+        }
+        footer button:hover {
+            text-decoration: underline;
+            color: #007bff;
+        }
+        footer form {
+            background: transparent;
+            padding: 0;
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+            form {
+                max-width: 100%;
+                padding: 30px;
+            }
+            nav {
+                padding: 8px;
+            }
+            nav a {
+                margin: 0 10px;
+                font-size: 14px;
+            }
+            button {
+                padding: 8px;
+                font-size: 16px;
+            }
+            #switchCamera {
+                margin-right: 10px;
+                width: auto;
+            }
+            #capture {
+                width: auto;
+            }
+            footer {
+                bottom: 5px;
+                right: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/calendar">Calendar</a>
+        <a href="/catch">Log a Catch</a>
+    </nav>
+    <form id="catchForm" action="/catch" method="POST">
+        <h1>Log your Catch</h1>
+        <label for="date">Date and Time</label>
+        <input type="datetime-local" id="date" name="date" required>
+        <label for="location">Location (e.g., Lake Name or lat, lon)</label>
+        <input type="text" id="location" name="location" required>
+        <label for="lure">Lure</label>
+        <input type="text" id="lure" name="lure" required>
+        <label for="size">Size</label>
+        <input type="text" id="size" name="size" required>
+        <label for="weight">Weight</label>
+        <input type="text" id="weight" name="weight" required>
+        <label>Image</label>
+        <video id="video" autoplay></video>
+        <button type="button" id="switchCamera">Switch Camera</button>
+        <button type="button" id="capture">Capture Photo</button>
+        <img id="preview" src="" alt="Preview" style="display: none;">
+        <input type="hidden" id="image_data" name="image_data">
+        <button type="submit">Log Catch</button>
+    </form>
+    <footer>
+        <form method="POST" action="/logout">
+            <button type="submit">Log Out</button>
+        </form>
+    </footer>
+    <script>
+        const video = document.getElementById('video');
+        const captureButton = document.getElementById('capture');
+        const switchButton = document.getElementById('switchCamera');
+        const preview = document.getElementById('preview');
+        const imageDataInput = document.getElementById('image_data');
+        const canvas = document.createElement('canvas');
+
+        let currentStream;
+        let facingMode = 'environment';
+
+        function startCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    currentStream = stream;
+                })
+                .catch(err => console.error('Error accessing camera:', err));
+        }
+
+        startCamera();
+
+        switchButton.addEventListener('click', () => {
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            startCamera();
+        });
+
+        captureButton.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL('image/png');
+            preview.src = dataURL;
+            preview.style.display = 'block';
+            imageDataInput.value = dataURL;
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const dateInput = document.getElementById('date');
+            const offsetHours = -4;
+            const localDate = new Date(now.getTime() + (offsetHours * 60 * 60 * 1000));
+            const hours = String(localDate.getUTCHours()).padStart(2, '0');
+            const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
+            const year = localDate.getUTCFullYear();
+            const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getUTCDate()).padStart(2, '0');
+            const localTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            dateInput.value = localTime;
+
+            const locationInput = document.getElementById('location');
+            locationInput.value = 'Fetching location...';
+
+            // Only use cache if it’s valid coordinates
+            const cachedLocation = localStorage.getItem('lastLocation');
+            if (cachedLocation && cachedLocation.match(/^-?\d+\.\d+, -?\d+\.\d+$/)) {
+                locationInput.value = cachedLocation;
+            }
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude.toFixed(4);
+                    const lon = position.coords.longitude.toFixed(4);
+                    const location = `${lat}, ${lon}`;
+                    locationInput.value = location;
+                    localStorage.setItem('lastLocation', location);
+                }, error => {
+                    console.error('Geolocation error:', error.message);
+                    if (!locationInput.value.match(/^-?\d+\.\d+, -?\d+\.\d+$/)) {
+                        locationInput.value = 'Location unavailable';
+                    }
+                }, { timeout: 10000 }); // Increased to 10s
+            }
+        });
+    </script>
+</body>
+</html>
