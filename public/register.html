@@ -2,18 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register</title>
     <style>
         body {
             margin: 20px;
-            background-color: #f0f0f0;
+            background-image: url('/public/static/new_login.jpg');
+            background-size: cover;
+            background-position: center;
+            min-height: 100vh;
+        }
+        .form-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 190px);
         }
         form {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-            background: white;
+            max-width: 300px;
+            padding: 40px;
+            background: black;
             border-radius: 8px;
+            color: white;
         }
         label {
             display: block;
@@ -23,6 +33,7 @@
             width: 100%;
             padding: 8px;
             margin-top: 5px;
+            box-sizing: border-box;
         }
         button {
             margin-top: 20px;
@@ -31,18 +42,72 @@
             color: white;
             border: none;
             cursor: pointer;
+            width: 100%;
+        }
+        .error-message {
+            color: red;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .form-container {
+                min-height: calc(100vh - 100px);
+            }
+            form {
+                max-width: 90%;
+                padding: 30px;
+            }
         }
     </style>
 </head>
 <body>
-    <form action="/register" method="POST">
-        <h1>Register</h1>
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" required>
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
-        <button type="submit">Register</button>
-        <p>Already have an account? <a href="/login">Login here</a></p>
-    </form>
+    <div class="form-container">
+        <form id="registerForm" action="/register" method="POST">
+            <h2>Register</h2>
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required>
+            <div id="usernameError" class="error-message"></div>
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+            <div id="passwordError" class="error-message"></div>
+            <button type="submit">Register</button>
+            <p>Already registered? <a href="/login">Login here</a></p>
+        </form>
+    </div>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const formData = new FormData(this);
+            fetch('/register', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Clear previous error messages
+                document.getElementById('usernameError').style.display = 'none';
+                document.getElementById('passwordError').style.display = 'none';
+
+                if (data.success) {
+                    window.location.href = data.redirect; // Redirect on success
+                } else {
+                    // Display error message below relevant field
+                    if (data.message.includes('Username')) {
+                        document.getElementById('usernameError').textContent = data.message;
+                        document.getElementById('usernameError').style.display = 'block';
+                    } else {
+                        document.getElementById('passwordError').textContent = data.message;
+                        document.getElementById('passwordError').style.display = 'block';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during registration');
+            });
+        });
+    </script>
 </body>
 </html>

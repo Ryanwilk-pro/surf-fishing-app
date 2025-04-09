@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory, redirect, session, jsonify
+from flask import Flask, request, send_from_directory, redirect, session, jsonify, render_template  # Added render_template
 import psycopg2
 import sqlite3
 import bcrypt
@@ -9,26 +9,26 @@ from datetime import datetime, timedelta, timezone
 import base64
 from math import radians, sin, cos, sqrt, atan2
 import logging
-import re  # Added for regular expression validation
+import re
 
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__, static_folder='public')
+app = Flask(__name__, static_folder='public', template_folder='public')  # Updated to set template_folder
 
 # Set secret key from environment variable
 app.secret_key = os.environ.get('SECRET_KEY')
 if not app.secret_key:
     if os.environ.get('FLASK_ENV') == 'development':
-        app.secret_key = os.urandom(24)  # Temporary key for development
+        app.secret_key = os.urandom(24)
         print("Warning: Using a temporary secret key for development.")
     else:
         raise ValueError("Error: You must set a SECRET_KEY in production!")
 
 # Production configurations
-app.config['SESSION_COOKIE_SECURE'] = True  # Ensure cookies are sent over HTTPS
-app.config['PERMANENT_SESSION_LIFETIME'] = 24 * 60 * 60  # 24-hour session lifetime
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 24 * 60 * 60
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['PREFERRED_URL_SCHEME'] = 'https' if os.environ.get('FLASK_ENV') != 'development' else 'http'
 
 # Logging setup for production
@@ -43,7 +43,6 @@ if not os.path.exists(uploads_dir):
 # Database connection function
 def get_db_connection():
     if os.environ.get('FLASK_ENV') == 'development':
-        # Use an absolute path to ensure SQLite finds it
         db_path = os.path.join(os.path.dirname(__file__), 'fishing.db')
         conn = sqlite3.connect(db_path)
     else:
@@ -197,7 +196,7 @@ def get_moon_phase(date):
         return 'Waning Crescent'
     return 'Unknown'
 
-# New validation functions
+# Validation functions for usernames and passwords
 def validate_username(username):
     """Validate username: 3-20 characters, alphanumeric and underscores only."""
     if len(username) < 3 or len(username) > 20:
@@ -246,23 +245,20 @@ def register():
         password = request.form.get('password')
         if not username or not password:
             logging.error("Missing username or password")
-            return 'Missing username or password', 400
+            return jsonify({'success': False, 'message': 'Missing username or password'}), 400
 
-        # Validate username
         valid_username, username_error = validate_username(username)
         if not valid_username:
             logging.error(f"Invalid username: {username_error}")
-            return username_error, 400
+            return jsonify({'success': False, 'message': username_error}), 400
 
-        # Validate password
         valid_password, password_error = validate_password(password)
         if not valid_password:
             logging.error(f"Invalid password: {password_error}")
-            return password_error, 400
+            return jsonify({'success': False, 'message': password_error}), 400
 
-        # Hash the password and convert to string for consistent database storage
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        hashed_str = hashed.decode('utf-8')  # Convert bytes to string
+        hashed_str = hashed.decode('utf-8')
         conn = get_db_connection()
         try:
             c = conn.cursor()
@@ -275,13 +271,13 @@ def register():
             conn.commit()
             session['user'] = {'id': user_id, 'username': username}
             logging.info(f"User registered: {username}")
-            return redirect('/')
+            return jsonify({'success': True, 'redirect': '/'}), 200
         except (sqlite3.IntegrityError, psycopg2.IntegrityError):
             logging.error(f"Username already exists: {username}")
-            return 'Username already exists', 400
+            return jsonify({'success': False, 'message': 'Username already exists'}), 400
         except Exception as e:
             logging.error(f"Error during registration: {e}")
-            return 'Registration failed', 500
+            return jsonify({'success': False, 'message': 'Registration failed'}), 500
         finally:
             conn.close()
 
@@ -305,7 +301,6 @@ def login():
             user = c.fetchone()
             if user:
                 logging.info(f"User found: {user[1]}")
-                # Convert stored hash string to bytes for bcrypt
                 stored_hash = user[2].encode('utf-8')
                 if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
                     session['user'] = {'id': user[0], 'username': user[1]}
@@ -319,6 +314,65 @@ def login():
         except Exception as e:
             logging.error(f"Error during login: {e}")
             return 'Login failed', 500
+        finally:
+            conn.close()
+
+@app.route('/account', methods=['GET', 'POST'])
+def account():
+    if 'user' not in session:
+        return redirect('/login')
+
+    if request.method == 'GET':
+        # Render the account page with the username
+        return render_template('account.html', username=session['user']['username'], message=None)
+
+    elif request.method == 'POST':
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+
+        if not old_password or not new_password:
+            logging.error("Missing old or new password")
+            return render_template('account.html', username=session['user']['username'], message='Missing old or new password'), 400
+
+        # Validate new password
+        valid_password, password_error = validate_password(new_password)
+        if not valid_password:
+            logging.error(f"Invalid new password: {password_error}")
+            return render_template('account.html', username=session['user']['username'], message=password_error), 400
+
+        # Verify old password and update if correct
+        conn = get_db_connection()
+        try:
+            c = conn.cursor()
+            user_id = session['user']['id']
+            if os.environ.get('FLASK_ENV') == 'development':
+                c.execute('SELECT password FROM users WHERE id = ?', (user_id,))
+            else:
+                c.execute('SELECT password FROM users WHERE id = %s', (user_id,))
+            user = c.fetchone()
+            if user:
+                stored_hash = user[0].encode('utf-8')
+                if bcrypt.checkpw(old_password.encode('utf-8'), stored_hash):
+                    # Hash the new password
+                    new_hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+                    new_hashed_str = new_hashed.decode('utf-8')
+                    # Update the password in the database
+                    if os.environ.get('FLASK_ENV') == 'development':
+                        c.execute('UPDATE users SET password = ? WHERE id = ?', (new_hashed_str, user_id))
+                    else:
+                        c.execute('UPDATE users SET password = %s WHERE id = %s', (new_hashed_str, user_id))
+                    conn.commit()
+                    logging.info(f"Password updated for user ID: {user_id}")
+                    return render_template('account.html', username=session['user']['username'], message='Password updated successfully')
+                else:
+                    logging.error("Old password incorrect")
+                    return render_template('account.html', username=session['user']['username'], message='Incorrect old password'), 401
+            else:
+                logging.error("User not found")
+                return render_template('account.html', username=session['user']['username'], message='User not found'), 404
+        except Exception as e:
+            logging.error(f"Error updating password: {e}")
+            return render_template('account.html', username=session['user']['username'], message='Failed to update password'), 500
         finally:
             conn.close()
 
@@ -369,12 +423,12 @@ def catch():
                     image_path = filename
         except Exception as e:
             logging.error(f"Error saving image: {e}")
-            image_path = ''  # Fallback to empty string if file save fails
+            image_path = ''
 
         conn = get_db_connection()
         try:
             c = conn.cursor()
-            user_id = int(session['user']['id'])  # Ensure user_id is an integer
+            user_id = int(session['user']['id'])
             if os.environ.get('FLASK_ENV') == 'development':
                 c.execute('''INSERT INTO catches (
                     user_id, image, date, location, lure, size, weight, tide, moon_phase, latitude, longitude
