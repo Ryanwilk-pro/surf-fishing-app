@@ -29,11 +29,22 @@
             display: block;
             margin-top: 10px;
         }
+        .input-group {
+            position: relative;
+            margin-top: 5px;
+        }
         input {
             width: 100%;
             padding: 8px;
-            margin-top: 5px;
             box-sizing: border-box;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #007bff;
         }
         button {
             margin-top: 20px;
@@ -69,15 +80,24 @@
             <input type="text" id="username" name="username" required>
             <div id="usernameError" class="error-message"></div>
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
+            <div class="input-group">
+                <input type="password" id="password" name="password" required>
+                <span class="toggle-password" onclick="togglePassword('password')">Show</span>
+            </div>
             <div id="passwordError" class="error-message"></div>
+            <label for="confirm_password">Confirm Password</label>
+            <div class="input-group">
+                <input type="password" id="confirm_password" name="confirm_password" required>
+                <span class="toggle-password" onclick="togglePassword('confirm_password')">Show</span>
+            </div>
+            <div id="confirmPasswordError" class="error-message"></div>
             <button type="submit">Register</button>
             <p>Already registered? <a href="/login">Login here</a></p>
         </form>
     </div>
     <script>
         document.getElementById('registerForm').addEventListener('submit', function(event) {
-            event.preventDefault(); // Prevent default form submission
+            event.preventDefault();
 
             const formData = new FormData(this);
             fetch('/register', {
@@ -86,17 +106,19 @@
             })
             .then(response => response.json())
             .then(data => {
-                // Clear previous error messages
                 document.getElementById('usernameError').style.display = 'none';
                 document.getElementById('passwordError').style.display = 'none';
+                document.getElementById('confirmPasswordError').style.display = 'none';
 
                 if (data.success) {
-                    window.location.href = data.redirect; // Redirect on success
+                    window.location.href = data.redirect;
                 } else {
-                    // Display error message below relevant field
                     if (data.message.includes('Username')) {
                         document.getElementById('usernameError').textContent = data.message;
                         document.getElementById('usernameError').style.display = 'block';
+                    } else if (data.message.includes('Passwords do not match')) {
+                        document.getElementById('confirmPasswordError').textContent = data.message;
+                        document.getElementById('confirmPasswordError').style.display = 'block';
                     } else {
                         document.getElementById('passwordError').textContent = data.message;
                         document.getElementById('passwordError').style.display = 'block';
@@ -108,6 +130,18 @@
                 alert('An error occurred during registration');
             });
         });
+
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const toggle = field.nextElementSibling;
+            if (field.type === 'password') {
+                field.type = 'text';
+                toggle.textContent = 'Hide';
+            } else {
+                field.type = 'password';
+                toggle.textContent = 'Show';
+            }
+        }
     </script>
 </body>
 </html>

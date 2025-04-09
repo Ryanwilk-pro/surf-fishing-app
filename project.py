@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory, redirect, session, jsonify, render_template  # Added render_template
+from flask import Flask, request, send_from_directory, redirect, session, jsonify, render_template
 import psycopg2
 import sqlite3
 import bcrypt
@@ -14,7 +14,7 @@ import re
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__, static_folder='public', template_folder='public')  # Updated to set template_folder
+app = Flask(__name__, static_folder='public', template_folder='public')
 
 # Set secret key from environment variable
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -205,7 +205,7 @@ def validate_username(username):
         return False, "Username can only contain letters, numbers, and underscores"
     return True, ""
 
-def validate_password(password):
+def validate_password(password, confirm_password=None):
     """Validate password: min 8 chars, with upper, lower, digit, and special char."""
     if len(password) < 8:
         return False, "Password must be at least 8 characters long"
@@ -217,6 +217,8 @@ def validate_password(password):
         return False, "Password must contain at least one digit"
     if not re.search(r'[!@#$%^&*]', password):
         return False, "Password must contain at least one special character (!@#$%^&*)"
+    if confirm_password is not None and password != confirm_password:
+        return False, "Passwords do not match"
     return True, ""
 
 # Routes
@@ -243,16 +245,17 @@ def register():
     elif request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        if not username or not password:
-            logging.error("Missing username or password")
-            return jsonify({'success': False, 'message': 'Missing username or password'}), 400
+        confirm_password = request.form.get('confirm_password')
+        if not username or not password or not confirm_password:
+            logging.error("Missing username, password, or confirm password")
+            return jsonify({'success': False, 'message': 'Missing username, password, or confirm password'}), 400
 
         valid_username, username_error = validate_username(username)
         if not valid_username:
             logging.error(f"Invalid username: {username_error}")
             return jsonify({'success': False, 'message': username_error}), 400
 
-        valid_password, password_error = validate_password(password)
+        valid_password, password_error = validate_password(password, confirm_password)
         if not valid_password:
             logging.error(f"Invalid password: {password_error}")
             return jsonify({'success': False, 'message': password_error}), 400
@@ -323,19 +326,19 @@ def account():
         return redirect('/login')
 
     if request.method == 'GET':
-        # Render the account page with the username
         return render_template('account.html', username=session['user']['username'], message=None)
 
     elif request.method == 'POST':
         old_password = request.form.get('old_password')
         new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
 
-        if not old_password or not new_password:
-            logging.error("Missing old or new password")
-            return render_template('account.html', username=session['user']['username'], message='Missing old or new password'), 400
+        if not old_password or not new_password or not confirm_password:
+            logging.error("Missing old password, new password, or confirm password")
+            return render_template('account.html', username=session['user']['username'], message='Missing old password, new password, or confirm password'), 400
 
         # Validate new password
-        valid_password, password_error = validate_password(new_password)
+        valid_password, password_error = validate_password(new_password, confirm_password)
         if not valid_password:
             logging.error(f"Invalid new password: {password_error}")
             return render_template('account.html', username=session['user']['username'], message=password_error), 400
@@ -353,10 +356,8 @@ def account():
             if user:
                 stored_hash = user[0].encode('utf-8')
                 if bcrypt.checkpw(old_password.encode('utf-8'), stored_hash):
-                    # Hash the new password
                     new_hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
                     new_hashed_str = new_hashed.decode('utf-8')
-                    # Update the password in the database
                     if os.environ.get('FLASK_ENV') == 'development':
                         c.execute('UPDATE users SET password = ? WHERE id = ?', (new_hashed_str, user_id))
                     else:
